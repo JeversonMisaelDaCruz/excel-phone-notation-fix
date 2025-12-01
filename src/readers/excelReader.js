@@ -4,6 +4,7 @@
 
 const XLSX = require('xlsx');
 const { isScientificNotation } = require('../converters/scientificNotationHandler');
+const { removeEmojis } = require('../converters/phoneConverter');
 
 /**
  * Lê arquivo Excel e retorna dados estruturados
@@ -46,6 +47,16 @@ function readExcelFile(filePath, options = {}) {
   const headers = data[0];
   const rows = data.slice(1);
 
+  // Remover emojis de todas as células
+  const cleanedRows = rows.map(row => {
+    return row.map(cell => {
+      if (typeof cell === 'string' && cell) {
+        return removeEmojis(cell);
+      }
+      return cell;
+    });
+  });
+
   // Detectar colunas de telefone
   let detectedPhoneColumns = phoneColumns;
 
@@ -57,9 +68,9 @@ function readExcelFile(filePath, options = {}) {
     fileName: filePath.split('/').pop(),
     sheetName: sheetName || workbook.SheetNames[0],
     headers,
-    rows,
+    rows: cleanedRows, // Usar rows limpos sem emojis
     phoneColumns: detectedPhoneColumns || [],
-    totalRows: rows.length,
+    totalRows: cleanedRows.length,
     totalColumns: headers.length,
     workbook // Retornar workbook para uso posterior
   };
