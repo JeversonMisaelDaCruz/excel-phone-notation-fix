@@ -1,20 +1,29 @@
 {
   "name": "excel-phone-converter",
-  "version": "1.0.0",
-  "description": "Conversor de números de telefone em notação científica para formato simples em planilhas Excel",
+  "version": "1.1.0",
+  "description": "Conversor de números de telefone em notação científica para formato simples em planilhas Excel e arquivos CSV",
   "main": "src/index.js",
   "scripts": {
     "start": "node run.js",
     "test": "jest"
   },
-  "keywords": ["excel", "phone", "converter", "scientific-notation", "brasil"],
+  "keywords": [
+    "excel",
+    "csv",
+    "phone",
+    "converter",
+    "scientific-notation",
+    "brasil"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "xlsx": "^0.18.5",
+    "chalk": "^4.1.2",
+    "csv-parser": "^3.2.0",
+    "csv-writer": "^1.6.0",
     "exceljs": "^4.4.0",
-    "yargs": "^17.7.2",
-    "chalk": "^4.1.2"
+    "xlsx": "^0.18.5",
+    "yargs": "^17.7.2"
   },
   "devDependencies": {
     "jest": "^29.7.0"
