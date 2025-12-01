@@ -1,11 +1,13 @@
 /**
- * Processador principal de Excel
+ * Processador principal de Excel e CSV
  * Orquestra leitura, conversão, validação e escrita
  */
 
-const { validateExcelFile } = require('../validators/excelValidator');
+const { validateFile } = require('../validators/fileValidator');
 const { readExcelFile } = require('../readers/excelReader');
-const { writeExcelFile, generateOutputPath } = require('../writers/excelWriter');
+const { readCSVFile } = require('../readers/csvReader');
+const { writeExcelFile, generateOutputPath: generateExcelOutputPath } = require('../writers/excelWriter');
+const { writeCSVFile, generateOutputPath: generateCSVOutputPath } = require('../writers/csvWriter');
 const { convertAndValidate } = require('../converters/phoneConverter');
 const Logger = require('../utils/logger');
 const fs = require('fs');
@@ -43,32 +45,44 @@ class ExcelProcessor {
 
     try {
       // 1. Validar arquivo de entrada
-      this.logger.section('Validando arquivo Excel');
-      const validation = validateExcelFile(this.inputFile);
+      this.logger.section('Validando arquivo');
+      const validation = validateFile(this.inputFile);
 
       if (!validation.isValid) {
         validation.errors.forEach(err => this.logger.error(err));
         throw new Error('Arquivo inválido');
       }
 
+      const fileType = validation.fileInfo.type;
       this.logger.success(`Arquivo válido: ${validation.fileInfo.name} (${validation.fileInfo.sizeFormatted})`);
 
-      // 2. Ler arquivo Excel
-      this.logger.section('Lendo arquivo Excel');
-      const excelData = readExcelFile(this.inputFile, {
-        phoneColumns: this.phoneColumns,
-        autoDetect: true
-      });
+      // 2. Ler arquivo (Excel ou CSV)
+      this.logger.section(`Lendo arquivo ${fileType.toUpperCase()}`);
 
-      this.report.summary.totalRows = excelData.totalRows;
+      let fileData;
+      if (fileType === 'csv') {
+        fileData = await readCSVFile(this.inputFile, {
+          phoneColumns: this.phoneColumns,
+          autoDetect: true
+        });
+      } else {
+        fileData = readExcelFile(this.inputFile, {
+          phoneColumns: this.phoneColumns,
+          autoDetect: true
+        });
+      }
 
-      this.logger.success(`${excelData.totalRows} linhas lidas`);
-      this.logger.info(`Planilha: ${excelData.sheetName}`);
+      this.report.summary.totalRows = fileData.totalRows;
+
+      this.logger.success(`${fileData.totalRows} linhas lidas`);
+      if (fileType === 'excel' && fileData.sheetName) {
+        this.logger.info(`Planilha: ${fileData.sheetName}`);
+      }
 
       // Mostrar colunas detectadas
-      if (excelData.phoneColumns.length > 0) {
+      if (fileData.phoneColumns.length > 0) {
         this.logger.info(`Colunas de telefone detectadas:`);
-        excelData.phoneColumns.forEach(col => {
+        fileData.phoneColumns.forEach(col => {
           this.logger.info(`  - ${col.name} (coluna ${col.index + 1}, confiança: ${col.confidence}%)`);
         });
       } else {
@@ -80,9 +94,9 @@ class ExcelProcessor {
       this.logger.section('Processando conversões');
 
       const conversions = [];
-      const phoneColumnIndices = excelData.phoneColumns.map(c => c.index);
+      const phoneColumnIndices = fileData.phoneColumns.map(c => c.index);
 
-      excelData.rows.forEach((row, rowIndex) => {
+      fileData.rows.forEach((row, rowIndex) => {
         phoneColumnIndices.forEach(colIndex => {
           const cellValue = row[colIndex];
 
@@ -100,7 +114,7 @@ class ExcelProcessor {
             conversions.push({
               row: rowIndex,
               col: colIndex,
-              columnName: excelData.headers[colIndex],
+              columnName: fileData.headers[colIndex],
               originalValue: result.original,
               newValue: result.converted,
               isValid: result.isValid,
@@ -113,7 +127,7 @@ class ExcelProcessor {
               this.report.summary.cellsInvalid++;
               this.report.warnings.push({
                 row: rowIndex + 2, // +2 para Excel (header + 1-based)
-                column: excelData.headers[colIndex],
+                column: fileData.headers[colIndex],
                 original: result.original,
                 converted: result.converted,
                 message: result.errors.join(', ')
@@ -122,7 +136,7 @@ class ExcelProcessor {
 
             this.report.conversionDetails.push({
               row: rowIndex + 2,
-              column: excelData.headers[colIndex],
+              column: fileData.headers[colIndex],
               original: String(result.original),
               converted: result.converted,
               validation: result.isValid ? 'PASS' : 'FAIL'
@@ -142,10 +156,22 @@ class ExcelProcessor {
       if (!this.validateOnly && conversions.length > 0) {
         this.logger.section('Salvando arquivo convertido');
 
-        const outputPath = this.outputFile || generateOutputPath(this.inputFile, this.mode);
+        let outputPath;
+        if (this.outputFile) {
+          outputPath = this.outputFile;
+        } else if (fileType === 'csv') {
+          outputPath = generateCSVOutputPath(this.inputFile, this.mode);
+        } else {
+          outputPath = generateExcelOutputPath(this.inputFile, this.mode);
+        }
+
         this.report.outputFile = outputPath;
 
-        await writeExcelFile(this.inputFile, outputPath, excelData, conversions);
+        if (fileType === 'csv') {
+          await writeCSVFile(this.inputFile, outputPath, fileData, conversions);
+        } else {
+          await writeExcelFile(this.inputFile, outputPath, fileData, conversions);
+        }
 
         this.logger.success(`Arquivo salvo: ${outputPath}`);
       }

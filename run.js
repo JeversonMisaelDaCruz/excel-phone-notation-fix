@@ -10,10 +10,10 @@ const { main } = require('./src/index');
 const path = require('path');
 
 const argv = yargs(hideBin(process.argv))
-  .usage('Uso: node run.js --input=<arquivo.xls>')
+  .usage('Uso: node run.js --input=<arquivo.xls|.xlsx|.csv>')
   .option('input', {
     alias: 'i',
-    description: 'Arquivo Excel de entrada (.xls ou .xlsx)',
+    description: 'Arquivo de entrada (.xls, .xlsx ou .csv)',
     type: 'string',
     demandOption: true
   })
@@ -45,9 +45,10 @@ const argv = yargs(hideBin(process.argv))
     type: 'boolean',
     default: false
   })
-  .example('node run.js --input="Seped_251127.xls"', 'Conversão básica com auto-detecção')
+  .example('node run.js --input="Seped_251127.xls"', 'Conversão básica com auto-detecção (Excel)')
+  .example('node run.js -i dados.csv', 'Converter arquivo CSV')
   .example('node run.js -i dados.xlsx -o ./saida', 'Especificar diretório de saída')
-  .example('node run.js -i phones.xls -m overwrite', 'Sobrescrever arquivo original')
+  .example('node run.js -i phones.csv -m overwrite', 'Sobrescrever arquivo original')
   .example('node run.js -i dados.xls -c "3,5"', 'Especificar colunas manualmente')
   .help('h')
   .alias('h', 'help')
